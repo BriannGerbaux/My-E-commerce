@@ -1,0 +1,10 @@
+-- Your SQL goes here
+CREATE TABLE Products (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(20) NOT NULL,
+  description TEXT NOT NULL,
+  price_in_dollar INTEGER NOT NULL,
+  thumbnail_url TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+)

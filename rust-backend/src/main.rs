@@ -13,8 +13,10 @@ async fn main() {
 
     // build our application with a route
     let app = Router::new()
-        .route("/login", post(login_handler))
-        .route("/register", post(register_handler))
+        .route("/api/login", post(user_login_handler))
+        .route("/api/register", post(user_register_handler))
+        .route("/admin/login", post(admin_login_handler))
+        .route("/admin/register", post(admin_register_handler))
         .with_state(app_state);
 
     // run our app with hyper, listening globally on port 3000

@@ -1,35 +1,29 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"os"
+	"go-backend/src/handlers"
+	"go-backend/src/middleware"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type User struct {
-	ID    string `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
-}
-
-func getUserById(c *gin.Context) {
-	//id := c.Params("id")
-	dbpool, err := pgxpool.New(context.Background(), os.Getenv("DATABASE_URL"))
-
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
-		os.Exit(1)
-	}
-	defer dbpool.Close()
-	//c.JSON(http.StatusOK, )
-}
+//func GetCart(c *gin.Context) {
+//	query := "SELECT Products.name, Products.description, Products.price_in_dollar, Products.thumbnail_url FROM Products JOIN Cart ON "
+//}
 
 func main() {
 	router := gin.Default()
+	dbService := middleware.DbConnection()
+	router.Use(middleware.InjectDatabaseService(&dbService))
 
-	router.GET("/users/:id", getUsers)
-	fmt.Println("Hello, world.")
+	apiRouter := router.Group("/api")
+	apiRouter.Use(middleware.UserAuthMiddleware())
+
+	apiRouter.GET("/users/:id", handlers.GetUserById)
+	apiRouter.GET("/products", handlers.GetProducts)
+
+	adminRouter := router.Group("/admin")
+	adminRouter.Use(middleware.AdminAuthMiddleware())
+	adminRouter.POST("/product", handlers.PostProduct)
+	router.Run(":8181")
 }
