@@ -2,10 +2,10 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -20,7 +20,7 @@ type Product struct {
 	ThumbnailUrl  string `json:"thumbnail_url"`
 }
 
-func GetProducts(c *gin.Context) {
+func ListProducts(c *gin.Context) {
 	dbService, exists := c.Get("DbService")
 	if !exists {
 		c.AbortWithStatusJSON(500, gin.H{"error": "Database service not found"})
@@ -51,6 +51,33 @@ func GetProducts(c *gin.Context) {
 	c.JSON(http.StatusOK, products)
 }
 
+func GetProduct(c *gin.Context) {
+	dbService, exists := c.Get("DbService")
+	if !exists {
+		c.AbortWithStatusJSON(500, gin.H{"error": "Database service not found"})
+		return
+	}
+	db := dbService.(*middleware.DatabaseService)
+
+	productId, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		return
+	}
+
+	var product Product
+
+	row := db.Pool.QueryRow(context.Background(), "SELECT * FROM Products WHERE id = $1", productId)
+	err = row.Scan(&product.Name, &product.Description, &product.PriceInDollar, &product.ThumbnailUrl)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Database query error: %v\n", err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Internal server Error"})
+		return
+	}
+
+	c.JSON(http.StatusOK, product)
+}
+
 func PostProduct(c *gin.Context) {
 	dbService, exists := c.Get("DbService")
 	if !exists {
@@ -60,21 +87,10 @@ func PostProduct(c *gin.Context) {
 	db := dbService.(*middleware.DatabaseService)
 	var product Product
 
-	buf := []byte{}
-	n, err := c.Request.Body.Read(buf)
-	if err != nil || n < 0 {
-		fmt.Fprintf(os.Stderr, "Bad request body: %v\n", err)
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+	if err := c.ShouldBindJSON(&product); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
 		return
 	}
-	if json.Unmarshal(buf, &product) != nil {
-		fmt.Fprintf(os.Stderr, "Couldn't unmarshal, bad request body: %v\n", err)
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
-		return
-	}
-
-	println(product.Name)
-	println(product.ThumbnailUrl)
 
 	conn, err := db.Pool.Exec(
 		context.Background(),
@@ -92,4 +108,68 @@ func PostProduct(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Product created"})
+}
+
+func UpdateProduct(c *gin.Context) {
+	dbService, exists := c.Get("DbService")
+	if !exists {
+		c.AbortWithStatusJSON(500, gin.H{"error": "Database service not found"})
+		return
+	}
+	db := dbService.(*middleware.DatabaseService)
+	var bodyProduct Product
+
+	if err := c.ShouldBindJSON(&bodyProduct); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		return
+	}
+
+	productId, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		return
+	}
+
+	conn, err := db.Pool.Exec(
+		context.Background(),
+		"UPDATE Products SET name = $1, description = $2, price_in_dollar = $3, thumbnail_url = $4 WHERE id = $5",
+		bodyProduct.Name,
+		bodyProduct.Description,
+		bodyProduct.PriceInDollar,
+		bodyProduct.ThumbnailUrl,
+		productId,
+	)
+
+	if err != nil || conn.RowsAffected() <= 0 {
+		fmt.Fprintf(os.Stderr, "Database query error: %v\n", err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Internal server Error"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"message": "Product created"})
+}
+
+func DeleteProduct(c *gin.Context) {
+	dbService, exists := c.Get("DbService")
+	if !exists {
+		c.AbortWithStatusJSON(500, gin.H{"error": "Database service not found"})
+		return
+	}
+	db := dbService.(*middleware.DatabaseService)
+
+	productId, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Bad Request"})
+		return
+	}
+
+	conn, err := db.Pool.Exec(context.Background(), "DELETE FROM Products WHERE id = $1", productId)
+
+	if err != nil || conn.RowsAffected() <= 0 {
+		fmt.Fprintf(os.Stderr, "Database query error: %v\n", err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Internal server Error"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Product deleted"})
 }

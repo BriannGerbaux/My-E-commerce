@@ -18,12 +18,23 @@ func main() {
 
 	apiRouter := router.Group("/api")
 	apiRouter.Use(middleware.UserAuthMiddleware())
-
-	apiRouter.GET("/users/:id", handlers.GetUserById)
-	apiRouter.GET("/products", handlers.GetProducts)
+	{
+		apiRouter.GET("/users/:id", handlers.GetUserById)
+		apiRouter.GET("/products", handlers.ListProducts)
+		apiRouter.GET("/products/:id", handlers.GetProduct)
+	}
 
 	adminRouter := router.Group("/admin")
 	adminRouter.Use(middleware.AdminAuthMiddleware())
-	adminRouter.POST("/product", handlers.PostProduct)
+	{
+		apiRouter.GET("/users", handlers.ListUsers)
+		apiRouter.GET("/users/:id", handlers.GetUserById)
+
+		adminRouter.GET("/products", handlers.ListProducts)
+		adminRouter.GET("/products/:id", handlers.GetProduct)
+		adminRouter.POST("/products", handlers.PostProduct)
+		adminRouter.DELETE("/products/:id", handlers.DeleteProduct)
+		adminRouter.PUT("/products/:id", handlers.UpdateProduct)
+	}
 	router.Run(":8181")
 }
